@@ -1,0 +1,51 @@
+[
+  {
+    "id": "rtx_4090",
+    "name": "NVIDIA GeForce RTX 4090",
+    "hashrate": 140,
+    "power": 450,
+    "price": 2000,
+    "image_query": "rtx 4090 graphics card product"
+  },
+  {
+    "id": "rtx_3080",
+    "name": "NVIDIA GeForce RTX 3080",
+    "hashrate": 100,
+    "power": 320,
+    "price": 700,
+    "image_query": "rtx 3080 graphics card"
+  },
+  {
+    "id": "rtx_3060_ti",
+    "name": "NVIDIA RTX 3060 Ti",
+    "hashrate": 60,
+    "power": 200,
+    "price": 400,
+    "image_query": "rtx 3060 ti founders edition"
+  },
+  {
+    "id": "rx_6800_xt",
+    "name": "AMD Radeon RX 6800 XT",
+    "hashrate": 64,
+    "power": 300,
+    "price": 550,
+    "image_query": "amd radeon rx 6800 xt card"
+  },
+  {
+    "id": "gtx_1660_super",
+    "name": "NVIDIA GTX 1660 Super",
+    "hashrate": 31,
+    "power": 125,
+    "price": 250,
+    "image_query": "gtx 1660 super gaming"
+  },
+  {
+    "id": "psu_850w",
+    "name": "Блок Питания 850W Gold",
+    "hashrate": 0,
+    "power": -850,
+    "price": 150,
+    "type": "psu",
+    "image_query": "corsair 850w power supply"
+  }
+]
