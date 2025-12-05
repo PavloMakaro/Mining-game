@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Crypto Miner</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #181818);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+            --card-bg: var(--tg-theme-secondary-bg-color, #242424);
+            --accent: var(--tg-theme-button-color, #3390ec);
+            --accent-text: var(--tg-theme-button-text-color, #ffffff);
+            --green: #2ecc71;
+            --red: #e74c3c;
+            --orange: #f39c12;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            padding-bottom: 80px; /* Отступ для меню */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- Header --- */
+        .header {
+            padding: 15px;
+            background: var(--card-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .balance-box {
+            text-align: right;
+        }
+        .balance-val {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--green);
+        }
+
+        /* --- Containers --- */
+        .container {
+            padding: 15px;
+            display: none; /* Скрываем все вкладки по умолчанию */
+            animation: fadeIn 0.3s ease;
+        }
+        .container.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 { font-size: 18px; margin-bottom: 10px; opacity: 0.8; }
+
+        /* --- Cards (GPU) --- */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            position: relative;
+        }
+        .card img {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 8px;
+            background: #000;
+        }
+        .card-info { flex: 1; }
+        .card-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+        .card-stat { font-size: 12px; opacity: 0.6; }
+        .card-price { font-weight: bold; color: var(--accent); margin-top: 5px; }
+        
+        /* --- Health Bar --- */
+        .health-track {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .health-fill {
+            height: 100%;
+            background: var(--green);
+            transition: width 0.3s;
+        }
+        .health-low { background: var(--red); }
+        .health-mid { background: var(--orange); }
+
+        /* --- Buttons --- */
+        .btn {
+            background: var(--accent);
+            color: var(--accent-text);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .btn:active { transform: scale(0.96); opacity: 0.8; }
+        .btn-buy { width: 100%; margin-top: 8px; }
+        .btn-repair { background: var(--card-bg); border: 1px solid var(--accent); color: var(--accent); }
+
+        /* --- Mining Section --- */
+        .mining-controls {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        select {
+            background: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .big-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background: linear-gradient(45deg, #007aff, #00c7be);
+            box-shadow: 0 4px 15px rgba(0, 118, 255, 0.3);
+        }
+
+        /* --- Tab Bar --- */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            background: var(--card-bg);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .tab-item {
+            text-align: center;
+            font-size: 10px;
+            opacity: 0.5;
+            flex: 1;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .tab-item.active { opacity: 1; color: var(--accent); }
+        .tab-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+
+        /* --- Notifications --- */
+        #notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <div style="font-size: 12px; opacity: 0.7;">Игрок</div>
+            <div id="username">Майнер</div>
+        </div>
+        <div class="balance-box">
+            <div style="font-size: 12px; opacity: 0.7;">Баланс</div>
+            <div class="balance-val">$<span id="balance">0</span></div>
+        </div>
+    </div>
+
+    <div id="tab-home" class="container active">
+        <div class="mining-controls">
+            <h3>Панель Управления</h3>
+            <select id="coin-selector">
+                </select>
+            <button class="btn big-btn" onclick="mine()">⛏ ЗАПУСТИТЬ МАЙНИНГ</button>
+            <div style="margin-top:10px; font-size: 12px; opacity: 0.6;">Цикл занимает несколько секунд</div>
+        </div>
+
+        <h3>Мой Риг <span style="font-size:12px; opacity:0.5">(<span id="rig-count">0</span>/4)</span></h3>
+        <div id="rig-list">
+            </div>
+        
+        <h3 style="margin-top:20px;">Инвентарь</h3>
+        <div id="inventory-list" style="opacity: 0.7;"></div>
+    </div>
+
+    <div id="tab-shop" class="container">
+        <h3>Новые видеокарты</h3>
+        <div id="shop-new"></div>
+        
+        <h3 style="margin-top:30px; color: var(--orange);">Б/У Рынок (Скидки)</h3>
+        <div id="shop-used"></div>
+    </div>
+
+    <div class="tab-bar">
+        <div class="tab-item active" onclick="switchTab('home', this)">
+            <span class="tab-icon">🏠</span> Риг
+        </div>
+        <div class="tab-item" onclick="switchTab('shop', this)">
+            <span class="tab-icon">🛒</span> Магазин
+        </div>
+    </div>
+
+    <div id="notification">Notification</div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        // Получаем ID пользователя из Телеграма. 
+        // В продакшене используй tg.initData, здесь для простоты берем ID или заглушку
+        const USER_ID = tg.initDataUnsafe?.user?.id || 12345;
+        const USERNAME = tg.initDataUnsafe?.user?.first_name || "Майнер";
+
+        document.getElementById('username').innerText = USERNAME;
+
+        let GAME_DATA = {};
+
+        // --- Инициализация ---
+        async function init() {
+            try {
+                const res = await fetch('/api/init', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: USER_ID })
+                });
+                const data = await res.json();
+                GAME_DATA = data;
+                render();
+            } catch (e) {
+                showNotify("Ошибка соединения с сервером");
+            }
+        }
+
+        // --- Отрисовка всего ---
+        function render() {
+            // Баланс
+            document.getElementById('balance').innerText = Math.floor(GAME_DATA.user.balance);
+            document.getElementById('rig-count').innerText = GAME_DATA.user.rig.length;
+
+            // Монеты (Селект)
+            const selector = document.getElementById('coin-selector');
+            if (selector.options.length === 0) {
+                GAME_DATA.coins.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.symbol;
+                    opt.innerText = `${c.icon} ${c.name} (Diff: ${c.difficulty})`;
+                    selector.appendChild(opt);
+                });
+            }
+
+            // Риг
+            const rigContainer = document.getElementById('rig-list');
+            rigContainer.innerHTML = GAME_DATA.user.rig.length ? '' : '<div style="text-align:center; opacity:0.5; padding:20px;">Пусто. Купите карты!</div>';
+            
+            GAME_DATA.user.rig.forEach(item => {
+                rigContainer.innerHTML += renderItem(item, true);
+            });
+
+            // Инвентарь
+            const invContainer = document.getElementById('inventory-list');
+            invContainer.innerHTML = GAME_DATA.user.inventory.map(i => renderItem(i, true)).join('');
+
+            // Магазин (Новые)
+            const shopNew = document.getElementById('shop-new');
+            shopNew.innerHTML = GAME_DATA.shop_new.map(gpu => renderShopItem(gpu, false)).join('');
+
+            // Магазин (Б/У)
+            const shopUsed = document.getElementById('shop-used');
+            shopUsed.innerHTML = GAME_DATA.shop_used.map(gpu => renderShopItem(gpu, true)).join('');
+        }
+
+        // Генерация HTML карты в риге
+        function renderItem(item, isOwned) {
+            const health = 100 - item.wear;
+            let healthClass = 'health-fill';
+            if(health < 60) healthClass += ' health-mid';
+            if(health < 30) healthClass += ' health-low';
+
+            return `
+            <div class="card">
+                <img src="${item.image_url}">
+                <div class="card-info">
+                    <div class="card-title">${item.name}</div>
+                    <div class="card-stat">Hash: ${item.hashrate} MH/s</div>
+                    <div class="health-track">
+                        <div class="${healthClass}" style="width: ${health}%"></div>
+                    </div>
+                </div>
+                ${item.wear > 0 ? `<button class="btn btn-repair" onclick="repair(${item.uid})">🛠</button>` : ''}
+            </div>`;
+        }
+
+        // Генерация HTML товара в магазине
+        function renderShopItem(item, isUsed) {
+            return `
+            <div class="card">
+                <img src="${item.image_url}">
+                <div class="card-info">
+                    <div class="card-title">${item.name} ${isUsed ? '<span style="color:orange">[Б/У]</span>' : ''}</div>
+                    <div class="card-stat">Power: ${item.hashrate || 0} MH/s</div>
+                    ${isUsed ? `<div class="card-stat" style="color:orange">Износ: ~${item.wear}%</div>` : ''}
+                    <div class="card-price">$${item.price}</div>
+                    <button class="btn btn-buy" onclick="buy('${item.id}', ${isUsed})">Купить</button>
+                </div>
+            </div>`;
+        }
+
+        // --- Действия ---
+
+        async function buy(itemId, isUsed) {
+            tg.MainButton.showProgress();
+            try {
+                const res = await fetch('/api/buy', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: USER_ID, item_id: itemId, is_used: isUsed })
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail);
+                }
+                const data = await res.json();
+                GAME_DATA.user = data.user;
+                render();
+                showNotify("Успешная покупка!");
+                tg.HapticFeedback.notificationOccurred('success');
+            } catch (e) {
+                showNotify(e.message);
+                tg.HapticFeedback.notificationOccurred('error');
+            }
+            tg.MainButton.hideProgress();
+        }
+
+        async function mine() {
+            const coin = document.getElementById('coin-selector').value;
+            tg.MainButton.setText("Майнинг...");
+            tg.MainButton.show();
+            
+            try {
+                const res = await fetch('/api/mine', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: USER_ID, coin_symbol: coin })
+                });
+                const data = await res.json();
+                GAME_DATA.user.balance = data.balance;
+                GAME_DATA.user.rig = data.rig; // Обновляем износ
+                render();
+                
+                showNotify(`+ $${data.profit_usd.toFixed(2)} USD`);
+                tg.HapticFeedback.impactOccurred('medium');
+            } catch (e) {
+                showNotify("Ошибка майнинга");
+            }
+            tg.MainButton.hide();
+        }
+
+        async function repair(uid) {
+            if(!confirm("Починить карту? Это стоит денег.")) return;
+            
+            try {
+                const res = await fetch('/api/repair', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: USER_ID, item_uid: uid })
+                });
+                if (!res.ok) throw new Error("Нет денег");
+                
+                const data = await res.json();
+                GAME_DATA.user = data.user;
+                render();
+                showNotify(`Отремонтировано за -$${data.cost}`);
+            } catch(e) {
+                showNotify(e.message);
+            }
+        }
+
+        // --- UI Utils ---
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        function showNotify(msg) {
+            const el = document.getElementById('notification');
+            el.innerText = msg;
+            el.style.opacity = 1;
+            setTimeout(() => { el.style.opacity = 0; }, 2000);
+        }
+
+        // Старт
+        init();
+
+    </script>
+</body>
+</html>
