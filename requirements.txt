@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+beautifulsoup4
+pydantic
+aiogram
+jinja2
+python-multipart
