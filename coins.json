@@ -1,0 +1,30 @@
+[
+  {
+    "symbol": "BTC",
+    "name": "Bitcoin",
+    "price_usd": 67000,
+    "difficulty": 500000,
+    "icon": "₿"
+  },
+  {
+    "symbol": "ETH",
+    "name": "Ethereum",
+    "price_usd": 3800,
+    "difficulty": 25000,
+    "icon": "Ξ"
+  },
+  {
+    "symbol": "TON",
+    "name": "Toncoin",
+    "price_usd": 7.8,
+    "difficulty": 500,
+    "icon": "💎"
+  },
+  {
+    "symbol": "DOGE",
+    "name": "Dogecoin",
+    "price_usd": 0.15,
+    "difficulty": 100,
+    "icon": "Ð"
+  }
+]
