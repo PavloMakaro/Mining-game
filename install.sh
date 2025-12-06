@@ -1,62 +1,84 @@
 #!/bin/bash
 
-# === НАСТРОЙКИ (ВСЁ ВШИТО) ===
+# === КОНФИГУРАЦИЯ ===
 DOMAIN="Tgbo1.ignorelist.com"
+PORT=5321
 BOT_TOKEN="8532885249:AAGvoZB9KHB79hVpy0suYLvF6J7ZIdkgZ2E"
 REPO_URL="https://github.com/PavloMakaro/Mining-game.git"
 INSTALL_DIR="/opt/mining_game"
 SERVICE_NAME="mining_game"
 
-# Проверка прав root
+# Проверка root
 if [ "$(id -u)" != "0" ]; then
-    echo "❌ Запустите скрипт через sudo!"
+    echo "❌ Запусти через sudo!"
     exit 1
 fi
 
-echo "🚀 НАЧИНАЕМ УСТАНОВКУ..."
+echo "🚀 Установка на порт $PORT..."
 
-# 1. Установка системных утилит (Nginx, Certbot, Python)
-echo "📦 Устанавливаем пакеты..."
+# 1. Установка утилит
 apt update -y
-apt install git python3-full python3-pip python3-venv nginx certbot python3-certbot-nginx -y
+apt install git python3-full python3-pip python3-venv certbot psmisc -y
 
-# 2. Остановка старых процессов
+# 2. ОСВОБОЖДАЕМ 80 ПОРТ
+echo "🛑 Освобождаем 80 порт..."
+# Сначала пробуем по-хорошему
+systemctl stop nginx
+# Если не помогло — убиваем всё, что сидит на 80 порту
+fuser -k 80/tcp 2>/dev/null
+
+# 3. Получаем сертификат (пока порт свободен)
+echo "🔒 Получаем сертификат для $DOMAIN..."
+certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos -m admin@$DOMAIN
+
+# Пути к ключам
+CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
+PRIVKEY="$CERT_DIR/privkey.pem"
+FULLCHAIN="$CERT_DIR/fullchain.pem"
+
+# 4. ЗАПУСКАЕМ СТАРОЕ ОБРАТНО
+echo "▶️ Запускаем старый Nginx обратно..."
+systemctl start nginx || echo "⚠️ Не удалось запустить Nginx (возможно, ошибка в его конфигах), но идем дальше..."
+
+# Проверка сертификата
+if [ ! -f "$PRIVKEY" ]; then
+    echo "❌ ОШИБКА: Сертификат не получен. Проверь, что домен $DOMAIN смотрит на этот сервер."
+    exit 1
+fi
+
+# 5. Чистая установка игры
+echo "📂 Устанавливаем игру..."
 systemctl stop $SERVICE_NAME 2>/dev/null
-# Удаляем старую папку, чтобы скачать свежую версию с Гитхаба
 rm -rf $INSTALL_DIR
-
-# 3. Скачивание проекта
-echo "📂 Клонируем репозиторий с GitHub..."
 git clone $REPO_URL $INSTALL_DIR
 cd $INSTALL_DIR || exit
 
-# 4. Настройка Python
-echo "🐍 Создаем виртуальное окружение..."
+# 6. Библиотеки
+echo "🐍 Ставим библиотеки..."
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
-# Устанавливаем библиотеки (на случай если requirements.txt старый, пропишем явно)
 ./venv/bin/pip install fastapi "uvicorn[standard]" aiogram requests beautifulsoup4 pydantic jinja2 python-multipart
 
-# 5. Жесткая прописка Токена в main.py
-echo "🔑 Прописываем токен..."
-# Ищем строку TOKEN = "..." и меняем на твой токен
+# 7. Вписываем токен
 if [ -f "main.py" ]; then
     sed -i "s/TOKEN = .*/TOKEN = \"$BOT_TOKEN\"/" main.py
 else
-    echo "⚠️ main.py не найден, проверьте репозиторий!"
+    echo "❌ main.py не найден!"
+    exit 1
 fi
 
-# 6. Настройка Systemd (автозапуск)
-echo "⚙️ Настраиваем сервис..."
+# 8. Запуск игры на 5321 (не мешает 80 порту)
+echo "⚙️ Запуск службы..."
 cat <<EOF > "/etc/systemd/system/$SERVICE_NAME.service"
 [Unit]
-Description=Crypto Mining Game
+Description=Mining Game (Port $PORT)
 After=network.target
 
 [Service]
 User=root
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+# Слушаем 5321, SSL подключен напрямую
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn main:app --host 0.0.0.0 --port $PORT --ssl-keyfile $PRIVKEY --ssl-certfile $FULLCHAIN
 Restart=always
 
 [Install]
@@ -67,38 +89,11 @@ systemctl daemon-reload
 systemctl enable $SERVICE_NAME
 systemctl restart $SERVICE_NAME
 
-# 7. Настройка Nginx (Веб-сервер)
-echo "🌐 Настраиваем Nginx для $DOMAIN..."
-NGINX_CONF="/etc/nginx/sites-available/$SERVICE_NAME"
-
-cat <<EOF > "$NGINX_CONF"
-server {
-    server_name $DOMAIN;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF
-
-# Включаем конфиг
-ln -s "$NGINX_CONF" /etc/nginx/sites-enabled/ 2>/dev/null
-rm /etc/nginx/sites-enabled/default 2>/dev/null
-nginx -t && systemctl reload nginx
-
-# 8. Получение SSL (HTTPS)
-echo "🔒 Получаем SSL сертификат..."
-# --non-interactive: не задавать вопросов
-# --agree-tos: согласиться с правилами
-# -m ...: почта (формальность)
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m admin@$DOMAIN --redirect
-
 echo "=================================================="
-echo "✅ ГОТОВО! ИГРА УСТАНОВЛЕНА."
-echo "Адрес: https://$DOMAIN"
-echo "Бот работает. Зайди в бота и нажми /seturl https://$DOMAIN"
+echo "✅ ГОТОВО!"
+echo "1. 80 порт освободили, сертификат взяли."
+echo "2. Старый сервис (Nginx) запустили обратно."
+echo "3. Игра работает тут: https://$DOMAIN:$PORT"
+echo ""
+echo "👉 В боте напиши: /seturl https://$DOMAIN:$PORT"
 echo "=================================================="
